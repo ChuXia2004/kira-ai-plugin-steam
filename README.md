@@ -100,8 +100,7 @@ pip install -r requirements.txt
   steam.json里，只有你能看到
 -SteamID64
   登录steam打开个人资料看浏览器地址栏  
-  https://steamcommunity.com/profiles/7656119800
-  0000000/ 你的steamID64`76561198000000000`
+  https://steamcommunity.com/profiles/76561198000000000/ 你的steamID64`76561198000000000`
 - 游戏内物品库存（`steam_game_items`）使用 Steam 社区公开接口，**不需要 API Key**，但要求目标用户库存为「公开」。
 - 查询库存时如遇 HTTP 429，说明 Steam 限流，请等待 1-2 分钟再试；插件已内置同一目标 3 秒间隔的限流保护。
 - Steam API 国内访问可能超时，建议开启代理。
