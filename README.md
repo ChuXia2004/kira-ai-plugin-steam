@@ -44,7 +44,7 @@ pip install -r requirements.txt
 | 字段 | 类型 | 默认值 | 说明 |
 | --- | --- | --- | --- |
 | `api_key` | sensitive | 空 | Steam API Key，从 [steamcommunity.com/dev/apikey](https://steamcommunity.com/dev/apikey) 获取 |
-| `steam_id` | string | 空 | 你的 SteamID64，登录steam打开个人资料看浏览器地址栏https://steamcommunity.com/profiles/765611980000000000/ 你的steamID64 `76561198000000000` |
+| `steam_id` | string | 空 | 你的 SteamID64， `76561198000000000` |
 | `enabled` | switch | true | 是否启用插件 |
 | `proxy_enabled` | switch | false | 启用代理（解决国内访问超时） |
 | `proxy_url` | string | `http://127.0.0.1:7890` | 代理地址，仅启用代理时生效 |
@@ -87,6 +87,21 @@ pip install -r requirements.txt
 
 ## 📝 注意事项
 
+-Steam API Key（钥匙）
+  1. 登录：用你的 Steam 账号登录上述网站（账号必须有消费      
+  记录，受限账号不行）
+  2. 填域名：页面有个“Domain Name”输入框，填 localhost 
+  或你的网站域名
+  3. 注册：点击“Register”，页面刷新后就会生成一串密钥
+  4. 复制：把那一串字符（类似ABCDEFGHIJKLMNOPQRSTUVWX
+  YZ1234567890）复制出来
+  · 这是“钥匙”，绝对不能公开分享
+  · 存放在本地配置文件 data/config/plugins/    
+  steam.json里，只有你能看到
+-SteamID64
+  登录steam打开个人资料看浏览器地址栏  
+  https://steamcommunity.com/profiles/7656119800
+  0000000/ 你的steamID64`76561198000000000`
 - 游戏内物品库存（`steam_game_items`）使用 Steam 社区公开接口，**不需要 API Key**，但要求目标用户库存为「公开」。
 - 查询库存时如遇 HTTP 429，说明 Steam 限流，请等待 1-2 分钟再试；插件已内置同一目标 3 秒间隔的限流保护。
 - Steam API 国内访问可能超时，建议开启代理。
