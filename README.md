@@ -68,12 +68,12 @@ pip install -r requirements.txt
 
 ```
 /steam market <物品名>    查询市场价格
-/steam inventory          查询我的游戏库存
-/steam friends            查询好友列表
-/steam me                 查询我的个人资料
+/steam inventory         查询我的游戏库存
+/steam friends           查询好友列表
+/steam me                查询我的个人资料
 /steam items <游戏>       查询游戏物品库存 (csgo/dota2/tf2/pubg)
 /steam search <关键词>    搜索商店游戏
-/steam help               显示帮助
+/steam help              显示帮助
 ```
 
 示例：
