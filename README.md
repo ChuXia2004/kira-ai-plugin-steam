@@ -17,7 +17,7 @@ KiraAI 的 Steam 集成插件，提供商店搜索、游戏库存、好友列表
 ```
 kira-ai-plugin-steam/
 ├── manifest.json      # 插件清单（插件 ID、版本、描述）
-├── main.py            # 插件主代码（工具注入 + 斜杠命令）
+├── main.py            # 插件主代码
 ├── requirements.txt   # Python 依赖
 ├── schema.json        # 配置项 schema（插件配置面板）
 └── README.md          # 本文档
@@ -44,11 +44,11 @@ pip install -r requirements.txt
 | 字段 | 类型 | 默认值 | 说明 |
 | --- | --- | --- | --- |
 | `api_key` | sensitive | 空 | Steam API Key，从 [steamcommunity.com/dev/apikey](https://steamcommunity.com/dev/apikey) 获取 |
-| `steam_id` | string | 空 | 你的 SteamID64，如 `76561198000000000` |
+| `steam_id` | string | 空 | 你的 SteamID64，如:登录steam打开个人资料看浏览器地址栏https://steamcommunity.com/profiles/765611980000000000/你的steamID64`76561198000000000` |
 | `enabled` | switch | true | 是否启用插件 |
 | `proxy_enabled` | switch | false | 启用代理（解决国内访问超时） |
 | `proxy_url` | string | `http://127.0.0.1:7890` | 代理地址，仅启用代理时生效 |
-| `cache_ttl` | int | 300 | API 请求缓存时间（秒），范围 60~86400 |
+| `cache_ttl` | int | 300 | API 请求缓存时间（秒），范围 60~86400 推荐600 |
 
 ## 🛠 工具（LLM 自动调用）
 
