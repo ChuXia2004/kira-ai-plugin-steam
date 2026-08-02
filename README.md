@@ -10,7 +10,6 @@ KiraAI 的 Steam 集成插件，提供商店搜索、游戏库存、好友列表
 - 🧑 **个人资料**：获取 Steam 用户昵称、状态、国家、注册时间等
 - 💰 **市场价格**：查询社区市场物品当前售价、最低挂单价与 24h 成交量
 - 📊 **历史成交**：查询市场物品近期成交记录
-- 🎒 **游戏物品**：查询 CS:GO/CS2、Dota2、TF2、PUBG 等游戏的饰品/皮肤库存（无需 API Key）
 
 ## 📦 文件结构
 
@@ -60,7 +59,6 @@ pip install -r requirements.txt
 | `steam_player_summary` | 查询用户资料 |
 | `steam_market_price` | 查询市场物品价格（需精确物品名称） |
 | `steam_market_history` | 查询市场物品历史成交记录 |
-| `steam_game_items` | 查询游戏内物品/道具库存（如 CS:GO 皮肤） |
 
 常用游戏缩写：`csgo/cs=730`、`dota2/dota=570`、`tf2=440`、`pubg=578080`。
 
@@ -71,7 +69,6 @@ pip install -r requirements.txt
 /steam inventory         查询我的游戏库存
 /steam friends           查询好友列表
 /steam me                查询我的个人资料
-/steam items <游戏>       查询游戏物品库存 (csgo/dota2/tf2/pubg)
 /steam search <关键词>    搜索商店游戏
 /steam help              显示帮助
 ```
@@ -81,7 +78,6 @@ pip install -r requirements.txt
 ```
 /steam market AK-47 | Redline
 /steam market csgo:AK-47 | Redline
-/steam items csgo
 /steam search 空洞骑士
 ```
 
