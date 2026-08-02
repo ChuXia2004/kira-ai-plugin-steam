@@ -1,0 +1,46 @@
+{
+  "section_steam": {
+    "type": "section",
+    "name": "Steam 配置",
+    "collapsed": false,
+    "fields": {
+      "api_key": {
+        "type": "sensitive",
+        "name": "Steam API Key",
+        "default": "",
+        "hint": "从 https://steamcommunity.com/dev/apikey 获取"
+      },
+      "steam_id": {
+        "type": "string",
+        "name": "SteamID (64位)",
+        "default": "",
+        "hint": "你的 SteamID64，如 76561198000000000"
+      },
+      "enabled": {
+        "type": "switch",
+        "name": "启用插件",
+        "default": true
+      },
+      "proxy_enabled": {
+        "type": "switch",
+        "name": "启用代理",
+        "default": false,
+        "hint": "开启后插件所有请求走代理（解决国内访问超时）"
+      },
+      "proxy_url": {
+        "type": "string",
+        "name": "代理地址",
+        "default": "http://127.0.0.1:7890",
+        "hint": "格式: http://127.0.0.1:端口，仅当启用代理时生效"
+      },
+      "cache_ttl": {
+        "type": "int",
+        "name": "缓存过期时间（秒）",
+        "default": 300,
+        "minimum": 60,
+        "maximum": 86400,
+        "hint": "API 请求缓存，避免频繁调用"
+      }
+    }
+  }
+}
