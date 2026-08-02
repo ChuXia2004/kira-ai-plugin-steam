@@ -4,7 +4,7 @@
   "version": "1.0.0",
   "author": "ChuXia",
   "description": "查询 Steam 商店、库存、好友列表、社区市场价格及游戏物品",
-  "repo": "",
+  "repo": "https://github.com/ChuXia2004/kira-ai-plugin-steam",
   "tags": ["tools", "game", "market"],
   "core_version": ">=2.6.1",
   "locales": {
