@@ -1,4 +1,4 @@
-# kira-ai-plugin-steam
+# Kira-AI-plugin-steam
 
 KiraAI 的 Steam 集成插件，提供商店搜索、游戏库存、好友列表、社区市场价格与游戏内物品（饰品/皮肤）查询等能力。
 
