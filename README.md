@@ -89,9 +89,10 @@ pip install -r requirements.txt
   2. 填域名：页面有个“Domain Name”输入框，填 localhost 
   或你的网站域名
   3. 注册：点击“Register”，页面刷新后就会生成一串密钥
-  4. 复制：把那一串字符（类似 ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890）复制出来
-· 这是“钥匙”，绝对不能公开分享
-· 存放在本地配置文件 data/config/plugins/steam.json 里，只有你能看到
+  4. 复制：把那一串字符（类似 
+  ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890）复制出来
+  · 这是“钥匙”，绝对不能公开分享
+  · 存放在本地配置文件 data/config/plugins/steam.json 里，只有你能看到
 -SteamID64
   登录steam打开个人资料看浏览器地址栏  
   https://steamcommunity.com/profiles/76561198000000000/ 你的steamID64`76561198000000000`
