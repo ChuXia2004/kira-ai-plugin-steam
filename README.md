@@ -93,4 +93,4 @@ pip install -r requirements.txt
 
 ## 📄 License
 
-MIT
+AGPL-3.0 许可证
