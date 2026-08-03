@@ -21,7 +21,7 @@ logger = get_logger("steam", "cyan")
 
 
 # ============================================================
-# 工具类（每个工具继承 BaseTool）
+# 工具类
 # ============================================================
 
 class SteamSearchGamesTool(BaseTool):
@@ -44,9 +44,9 @@ class SteamSearchGamesTool(BaseTool):
 
 
 class SteamInventoryTool(BaseTool):
-    """查询 Steam 游戏库存"""
+    """查询 Steam 游戏库存（已购游戏列表）"""
     name = "steam_inventory"
-    description = "查询指定用户的 Steam 游戏库存列表"
+    description = "查询指定用户的 Steam 游戏库存列表（已购游戏）"
     parameters = {
         "type": "object",
         "properties": {
@@ -141,28 +141,6 @@ class SteamMarketHistoryTool(BaseTool):
 
     async def execute(self, event: KiraMessageBatchEvent, item_name: str, app_id: str = None, days: int = 7, *args, **kwargs) -> str:
         return await self.plugin._market_history(item_name, app_id, days)
-
-
-class SteamGameItemsTool(BaseTool):
-    """查询游戏内物品库存"""
-    name = "steam_game_items"
-    description = "查询用户在特定游戏中的物品/道具库存（CS:GO 皮肤、Dota2 饰品等）"
-    parameters = {
-        "type": "object",
-        "properties": {
-            "app_id": {"type": "string", "description": "游戏 AppID 或缩写(csgo/dota2/tf2)"},
-            "steam_id": {"type": "string", "description": "SteamID64，不填则使用配置的默认值"},
-            "context_id": {"type": "string", "description": "上下文 ID，默认 2", "default": "2"},
-            "limit": {"type": "integer", "description": "返回数量上限，默认 30", "default": 30}
-        },
-        "required": ["app_id"],
-    }
-
-    def __init__(self, plugin):
-        self.plugin = plugin
-
-    async def execute(self, event: KiraMessageBatchEvent, app_id: str, steam_id: str = None, context_id: str = "2", limit: int = 30, *args, **kwargs) -> str:
-        return await self.plugin._get_game_items(app_id, steam_id, context_id, limit)
 
 
 # ============================================================
@@ -315,7 +293,7 @@ class SteamPlugin(BasePlugin):
         url = f"https://steamcommunity.com/market/{endpoint}/"
         params = {
             "country": "CN",
-            "currency": "1",
+            "currency": "1",  # 人民币
             "appid": app_id,
             "market_hash_name": item_name,
         }
@@ -378,41 +356,28 @@ class SteamPlugin(BasePlugin):
             logger.exception(f"[steam] 市场列表解析异常: {e}")
             return None
 
-    def _format_market_price(self, item_name: str, app_id: int, listing: dict) -> str:
-        lines = [
-            f"💰 **Steam 市场价格**",
-            f"🎮 AppID: {app_id}",
-            f"📦 物品: {item_name}",
-            f"💵 当前售价: {listing.get('current_price', '未知')}",
-        ]
-        if listing.get("listing_count"):
-            lines.append(f"📋 在售数量: {listing['listing_count']}")
-        if listing.get("volume"):
-            lines.append(f"📊 24h 成交量: {listing['volume']}")
-
-        encoded_name = item_name.replace(" ", "%20")
-        lines.append(f"🔗 市场链接: https://steamcommunity.com/market/listings/{app_id}/{encoded_name}")
-        return "\n".join(lines)
-
     def _get_help(self) -> str:
         return """📖 Steam 命令帮助
 
-/steam market <物品名>    查询市场价格
-/steam inventory          查询我的游戏库存
+/steam market <物品名>    查询市场价格（自动汇总所有磨损度）
+/steam inventory          查询我的游戏库存（已购游戏列表）
 /steam friends            查询好友列表
 /steam me                 查询我的个人资料
-/steam items <游戏>       查询游戏物品库存 (csgo/dota2/tf2/pubg)
 /steam search <关键词>    搜索商店游戏
 /steam help               显示此帮助
 
 示例：
-/steam market AK-47 | Redline
-/steam market csgo:AK-47 | Redline
-/steam items csgo
-/steam search 空洞骑士"""
+/steam market M4A1-S | Printstream
+/steam market csgo:M4A1-S | Printstream
+/steam inventory
+/steam friends
+/steam search 空洞骑士
+
+💡 查询饰品价格时，无需指定磨损度，插件会自动汇总所有磨损度。
+   如需精确查询某个磨损度：/steam market <物品名> (Factory New)"""
 
     # ============================================================
-    # 核心业务方法（供工具类调用）
+    # 核心业务方法
     # ============================================================
 
     async def _search_games(self, query: str) -> str:
@@ -608,6 +573,7 @@ class SteamPlugin(BasePlugin):
         return "\n".join(lines)
 
     async def _market_price(self, item_name: str, app_id: str = None) -> str:
+        """查询单个物品价格"""
         app_id = self._resolve_app_id(app_id)
         if not app_id:
             return "⚠️ 无法识别游戏 AppID"
@@ -616,7 +582,7 @@ class SteamPlugin(BasePlugin):
         if not data:
             listing = await self._market_listing(app_id, item_name)
             if listing:
-                return self._format_market_price(item_name, app_id, listing)
+                return self._format_market_price_single(item_name, app_id, listing)
             return f"❌ 未找到物品「{item_name}」的市场信息"
 
         if data.get("success") is False:
@@ -638,21 +604,109 @@ class SteamPlugin(BasePlugin):
         current = parse_price(price_str)
         lowest = parse_price(lowest_price)
 
+        encoded_name = item_name.replace(" ", "%20")
+
         lines = [
-            f"💰 **Steam 市场价格**",
+            f"📊 {item_name}",
             f"🎮 AppID: {app_id}",
-            f"📦 物品: {item_name}",
-            f"💵 当前售价: {price_str}",
-            f"📉 最低挂单价: {lowest_price}",
-            f"📊 24h 成交量: {volume}",
+            "",
+            f"  当前售价    {price_str}",
+            f"  最低挂单    {lowest_price}",
+            f"  24h 成交量  {volume}",
         ]
 
         if current > 0 and lowest > 0 and lowest < current:
             diff = ((current - lowest) / current) * 100
-            lines.append(f"📌 挂单低于市价: -{diff:.1f}%")
+            lines.append(f"  折扣        -{diff:.1f}%")
 
+        lines.append("")
+        lines.append(f"🔗 https://steamcommunity.com/market/listings/{app_id}/{encoded_name}")
+
+        return "\n".join(lines)
+
+    def _format_market_price_single(self, item_name: str, app_id: int, listing: dict) -> str:
+        """格式化单物品价格（备用方案）"""
         encoded_name = item_name.replace(" ", "%20")
-        lines.append(f"🔗 市场链接: https://steamcommunity.com/market/listings/{app_id}/{encoded_name}")
+        lines = [
+            f"📊 {item_name}",
+            f"🎮 AppID: {app_id}",
+            "",
+            f"  当前售价    {listing.get('current_price', '未知')}",
+        ]
+        if listing.get("listing_count"):
+            lines.append(f"  在售数量    {listing['listing_count']}")
+        if listing.get("volume"):
+            lines.append(f"  24h 成交量  {listing['volume']}")
+
+        lines.append("")
+        lines.append(f"🔗 https://steamcommunity.com/market/listings/{app_id}/{encoded_name}")
+        return "\n".join(lines)
+
+    async def _search_wear_variants(self, base_name: str, app_id: Optional[str] = None) -> str:
+        """搜索物品的所有磨损度价格并汇总（纯文本格式）"""
+        resolved_app_id = self._resolve_app_id(app_id)
+        if not resolved_app_id:
+            return "⚠️ 无法识别游戏 AppID"
+
+        wear_levels = [
+            ("Factory New", "崭新出厂"),
+            ("Minimal Wear", "略有磨损"),
+            ("Field-Tested", "久经沙场"),
+            ("Well-Worn", "破损不堪"),
+            ("Battle-Scarred", "战痕累累"),
+        ]
+
+        results = []
+        found_any = False
+
+        for en_name, cn_name in wear_levels:
+            full_name = f"{base_name} ({en_name})"
+            price_data = await self._market_request(resolved_app_id, full_name, "priceoverview")
+
+            if price_data and price_data.get("success") is not False:
+                found_any = True
+                results.append({
+                    "wear_cn": cn_name,
+                    "price": price_data.get("price", "未知"),
+                    "volume": price_data.get("volume", "N/A"),
+                })
+            else:
+                # 尝试不带括号的写法
+                full_name_alt = f"{base_name} {en_name}"
+                if full_name_alt != full_name:
+                    price_data = await self._market_request(resolved_app_id, full_name_alt, "priceoverview")
+                    if price_data and price_data.get("success") is not False:
+                        found_any = True
+                        results.append({
+                            "wear_cn": cn_name,
+                            "price": price_data.get("price", "未知"),
+                            "volume": price_data.get("volume", "N/A"),
+                        })
+
+        if not found_any:
+            return f"❌ 未找到「{base_name}」的任何磨损度版本。\n\n请确认物品名称是否正确，例如：\n`AK-47 | Redline`\n`M4A1-S | Printstream`"
+
+        # 计算对齐宽度
+        max_price_len = max(len(r["price"]) for r in results)
+        max_vol_len = max(len(r["volume"]) for r in results)
+
+        game_names = {730: "CS:GO/CS2", 570: "Dota2", 440: "TF2", 578080: "PUBG"}
+        game_name = game_names.get(resolved_app_id, f"AppID {resolved_app_id}")
+
+        lines = [
+            f"📊 {base_name} 各磨损度价格",
+            f"🎮 {game_name}",
+            "",
+        ]
+
+        for r in results:
+            price_pad = r["price"].ljust(max_price_len + 2)
+            vol_pad = r["volume"].ljust(max_vol_len + 2)
+            lines.append(f"  {r['wear_cn']:<6}  {price_pad}  {vol_pad}")
+
+        lines.append("")
+        lines.append("💡 精确查询：/steam market <物品名> (磨损度英文)")
+        lines.append("   例：/steam market M4A1-S | Printstream (Factory New)")
 
         return "\n".join(lines)
 
@@ -723,142 +777,6 @@ class SteamPlugin(BasePlugin):
             logger.exception("[steam] 市场历史查询异常")
             return f"❌ 查询失败：{str(e)[:100]}"
 
-    async def _get_game_items(self, app_id: str, steam_id: str = None, context_id: str = "2", limit: int = 30) -> str:
-        """
-        查询游戏内物品库存 - 使用 Steam 社区公开接口
-        接口：https://steamcommunity.com/inventory/{steam_id}/{app_id}/{context_id}
-        此接口不需要 API Key
-        """
-        resolved_app_id = self._resolve_app_id(app_id)
-        if not resolved_app_id:
-            return "⚠️ 无法识别游戏 AppID"
-
-        target_id = steam_id or self.steam_id
-        if not target_id:
-            return "⚠️ 未指定 SteamID"
-        if not target_id.isdigit() or len(target_id) < 10:
-            return f"❌ SteamID 格式错误：{target_id}"
-
-        limit = min(max(limit, 1), 100)
-        context_id = context_id or "2"
-
-        url = f"https://steamcommunity.com/inventory/{target_id}/{resolved_app_id}/{context_id}"
-        params = {"l": "zh", "count": limit}
-
-        cache_key = f"inventory:{target_id}:{resolved_app_id}:{context_id}:{limit}"
-        cached = self._cache_get(cache_key)
-        if cached:
-            return cached
-
-        # ---------- 限流保护 ----------
-        # 同一目标 + 同一游戏，至少间隔 3 秒
-        import time
-        rate_limit_key = f"inventory:{target_id}:{resolved_app_id}"
-        now = time.time()
-        last_req = getattr(self, "_last_request_time", {})
-        if rate_limit_key in last_req:
-            elapsed = now - last_req[rate_limit_key]
-            if elapsed < 3.0:
-                wait_time = 3.0 - elapsed
-                logger.warning(f"[steam] 请求太频繁，等待 {wait_time:.1f} 秒后重试")
-                await asyncio.sleep(wait_time)
-        last_req[rate_limit_key] = time.time()
-        self._last_request_time = last_req
-
-        try:
-            async with self._session.get(url, params=params) as resp:
-                # ---------- 针对 429 的特殊提示 ----------
-                if resp.status == 429:
-                    return (
-                        f"⏰ 请求太频繁，Steam 暂时限流了（HTTP 429）。\n\n"
-                        "请等待 1-2 分钟后重试。\n"
-                        "如果多次出现此提示，说明查询过于密集，建议放缓查询频率。"
-                    )
-
-                if resp.status == 404:
-                    return (
-                        f"❌ 该游戏（AppID: {resolved_app_id}）的库存接口不存在。\n\n"
-                        "可能原因：\n"
-                        "1. 该游戏不支持 Steam 库存系统\n"
-                        "2. 游戏 ID 不正确\n\n"
-                        "💡 试试用 `/steam inventory` 查询你拥有的游戏列表，确认 AppID 是否正确。"
-                    )
-
-                if resp.status != 200:
-                    return f"❌ 获取库存失败 (HTTP {resp.status})，请确认库存是否公开"
-    
-                data = await resp.json()
-
-                if data.get("success") is False:
-                    error_msg = data.get("error", "未知错误")
-                    if "profile" in error_msg.lower() or "private" in error_msg.lower():
-                        return "❌ 该用户的 Steam 库存设为「不公开」，无法查看物品。\n\n请在 Steam 个人资料设置中将库存设为「公开」后重试。"
-                    return f"❌ {error_msg}"
-
-                assets = data.get("assets", [])
-                descriptions = {d.get("classid", ""): d for d in data.get("descriptions", [])}
-
-                if not assets:
-                    game_names = {730: "CS:GO/CS2", 570: "Dota2", 440: "TF2", 578080: "PUBG"}
-                    game_name = game_names.get(resolved_app_id, f"AppID {resolved_app_id}")
-                    return f"📭 用户在游戏 {game_name} 中没有任何物品（或库存为空）。"
-
-                enriched_items = []
-                for item in assets[:limit]:
-                    class_id = item.get("classid", "")
-                    desc = descriptions.get(class_id, {})
-                    enriched_items.append({
-                        "name": desc.get("market_hash_name", desc.get("name", "未知物品")),
-                        "type": desc.get("type", "未知类型"),
-                        "rarity": desc.get("rarity", ""),
-                        "color": desc.get("color", ""),
-                        "tradable": desc.get("tradable", False),
-                        "marketable": desc.get("marketable", False),
-                        "quantity": item.get("amount", 1),
-                    })
-
-                rarity_order = {"Common": 0, "Uncommon": 1, "Rare": 2, "Mythical": 3, "Legendary": 4, "Ancient": 5, "Immortal": 6}
-                enriched_items.sort(key=lambda x: rarity_order.get(x.get("rarity", ""), -1), reverse=True)
-
-                total = len(assets)
-                tradable_count = sum(1 for i in enriched_items if i.get("tradable"))
-                marketable_count = sum(1 for i in enriched_items if i.get("marketable"))
-
-                game_names = {730: "CS:GO/CS2", 570: "Dota2", 440: "TF2", 578080: "PUBG"}
-                game_name = game_names.get(resolved_app_id, f"AppID {resolved_app_id}")
-
-                lines = [
-                    f"🎒 **{game_name} 物品库存**",
-                    f"👤 用户: {target_id}",
-                    f"📦 物品总数: {total}",
-                    f"🔄 可交易: {tradable_count} 件",
-                    f"🏪 可上架市场: {marketable_count} 件",
-                    "",
-                    "📋 物品列表:",
-                ]
-
-                for idx, item in enumerate(enriched_items[:limit], 1):
-                    name = item["name"]
-                    qty = f" x{item['quantity']}" if item['quantity'] > 1 else ""
-                    rarity = f"[{item['rarity']}]" if item.get('rarity') else ""
-                    tradable = "🔁" if item.get('tradable') else "🔒"
-                    marketable = "🏪" if item.get('marketable') else ""
-                    lines.append(f"{idx}. {tradable}{marketable} {name}{qty} {rarity}")
-
-                if total > limit:
-                    lines.append(f"\n... 还有 {total - limit} 件物品未显示（可调整 limit 参数获取更多）")
-
-                lines.append(f"\n💡 使用 `/steam market` 可查询具体物品价格")
-                output = "\n".join(lines)
-                self._cache_set(cache_key, output)
-                return output
-    
-        except asyncio.TimeoutError:
-            return "⏰ 库存查询超时，请稍后再试"
-        except Exception as e:
-            logger.exception("[steam] 库存请求异常")
-            return f"❌ 请求失败：{str(e)[:100]}"
-
     # ============================================================
     # 工具注入
     # ============================================================
@@ -875,19 +793,17 @@ class SteamPlugin(BasePlugin):
         req.tool_set.add(SteamPlayerSummaryTool(self))
         req.tool_set.add(SteamMarketPriceTool(self))
         req.tool_set.add(SteamMarketHistoryTool(self))
-        req.tool_set.add(SteamGameItemsTool(self))
 
         for p in req.system_prompt:
             if p.name == "tools":
                 p.content += (
                     "\n\n【Steam 插件工具】"
                     "\n- steam_search_games: 搜索商店游戏"
-                    "\n- steam_inventory: 查询用户游戏库存"
+                    "\n- steam_inventory: 查询用户游戏库存（已购游戏列表）"
                     "\n- steam_friends: 查询好友列表"
                     "\n- steam_player_summary: 查询用户资料"
-                    "\n- steam_market_price: 查询市场物品价格（需要精确物品名称）"
+                    "\n- steam_market_price: 查询市场物品价格（自动汇总所有磨损度）"
                     "\n- steam_market_history: 查询市场物品历史成交记录"
-                    "\n- steam_game_items: 查询特定游戏的物品/道具库存（如 CS:GO 皮肤）"
                     "\n\n常用游戏缩写: csgo/cs=730, dota2/dota=570, tf2=440, pubg=578080"
                     "\nSteamID 默认使用配置值，用户也可指定其他 SteamID。"
                 )
@@ -931,7 +847,6 @@ class SteamPlugin(BasePlugin):
             "friends": self._cmd_friends,
             "me": self._cmd_me,
             "profile": self._cmd_me,
-            "items": self._cmd_items,
             "search": self._cmd_search,
             "help": self._cmd_help,
         }
@@ -956,15 +871,30 @@ class SteamPlugin(BasePlugin):
     # ---------- 子命令 ----------
 
     async def _cmd_market(self, event: KiraMessageEvent, rest: str) -> str:
+        """/steam market 子命令 - 支持自动补全磨损度"""
         if not rest.strip():
-            return "❌ 用法: /steam market <物品名>\n示例: /steam market AK-47 | Redline"
+            return "❌ 用法: /steam market <物品名>\n示例: /steam market M4A1-S | Printstream"
+
         app_id = None
         item_name = rest
+
         if ":" in rest:
             parts = rest.split(":", 1)
             app_id = parts[0].strip()
             item_name = parts[1].strip()
-        return await self._market_price(item_name, app_id)
+
+        # 检查是否已包含磨损度关键词
+        wear_keywords = ["Factory New", "Minimal Wear", "Field-Tested", "Well-Worn", "Battle-Scarred", "("]
+        has_wear = any(kw in item_name for kw in wear_keywords)
+
+        if has_wear:
+            result = await self._market_price(item_name, app_id)
+            if result.startswith("❌") or result.startswith("⚠️"):
+                return result
+            return result
+
+        # 未指定磨损度 → 汇总所有磨损度
+        return await self._search_wear_variants(item_name, app_id)
 
     async def _cmd_inventory(self, event: KiraMessageEvent, rest: str) -> str:
         return await self._get_inventory(steam_id=None, app_id=rest.strip() or None)
@@ -974,11 +904,6 @@ class SteamPlugin(BasePlugin):
 
     async def _cmd_me(self, event: KiraMessageEvent, rest: str) -> str:
         return await self._get_player_summary(steam_id=None)
-
-    async def _cmd_items(self, event: KiraMessageEvent, rest: str) -> str:
-        if not rest.strip():
-            return "❌ 用法: /steam items <游戏>\n支持: csgo, dota2, tf2, pubg"
-        return await self._get_game_items(rest.strip().lower(), steam_id=None, context_id="2", limit=30)
 
     async def _cmd_search(self, event: KiraMessageEvent, rest: str) -> str:
         if not rest.strip():
