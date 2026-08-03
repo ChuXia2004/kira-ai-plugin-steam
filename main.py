@@ -293,7 +293,7 @@ class SteamPlugin(BasePlugin):
         url = f"https://steamcommunity.com/market/{endpoint}/"
         params = {
             "country": "CN",
-            "currency": "1",  # 人民币
+            "currency": "1",
             "appid": app_id,
             "market_hash_name": item_name,
         }
@@ -467,23 +467,27 @@ class SteamPlugin(BasePlugin):
 
         games_sorted = sorted(games, key=lambda g: g.get("playtime_forever", 0), reverse=True)
 
-        result_lines = [f"🎮 用户 {target_id} 的 Steam 游戏库存（共 {total_count} 款）：", ""]
+        lines = [
+            f"[游戏库存]",
+            f"用户: {target_id}",
+            f"总数: {total_count} 款",
+            "",
+        ]
 
-        for idx, game in enumerate(games_sorted[:20], 1):
+        for idx, game in enumerate(games_sorted[:30], 1):
             name = game.get("name", "未知游戏")
             appid = game.get("appid", "")
             playtime = game.get("playtime_forever", 0)
-            playtime_str = f"{playtime // 60}h" if playtime >= 60 else f"{playtime}m" if playtime > 0 else "未玩"
+            playtime_str = f"{playtime // 60}h" if playtime >= 60 else f"{playtime}m" if playtime > 0 else "0h"
             recent = game.get("playtime_2weeks", 0)
-            recent_str = f"（最近两周 {recent // 60}h）" if recent > 0 else ""
+            recent_str = f" | 近期: {recent // 60}h" if recent > 0 else ""
 
-            result_lines.append(f"{idx}. {name} (AppID: {appid})")
-            result_lines.append(f"   游玩时间: {playtime_str} {recent_str}")
+            lines.append(f"{idx}. {name} ({appid}) | {playtime_str}{recent_str}")
 
-        if len(games_sorted) > 20:
-            result_lines.append(f"\n... 还有 {len(games_sorted) - 20} 款游戏")
+        if len(games_sorted) > 30:
+            lines.append(f"... 还有 {len(games_sorted) - 30} 款游戏未显示")
 
-        return "\n".join(result_lines)
+        return "\n".join(lines)
 
     async def _get_friends(self, steam_id: str = None, include_profile: bool = True) -> str:
         if not self.api_key:
@@ -516,24 +520,42 @@ class SteamPlugin(BasePlugin):
                     for player in profile_data.get("response", {}).get("players", []):
                         profiles[player["steamid"]] = player
 
-        result_lines = [f"👥 用户 {target_id} 的好友列表（共 {len(friend_ids)} 人）：", ""]
-
         status_map = {0: "离线", 1: "在线", 2: "忙碌", 3: "离开", 4: "休眠", 5: "想玩", 6: "想玩"}
 
-        for idx, fid in enumerate(friend_ids[:30], 1):
+        lines = [
+            f"[好友列表]",
+            f"用户: {target_id}",
+            f"总数: {len(friend_ids)}",
+            "",
+        ]
+
+        online_count = 0
+        in_game_count = 0
+
+        for idx, fid in enumerate(friend_ids[:50], 1):
             profile = profiles.get(fid, {})
             name = profile.get("personaname", "未知用户")
-            status = status_map.get(profile.get("personastate", 0), "未知")
+            status_code = profile.get("personastate", 0)
+            status = status_map.get(status_code, "未知")
             game = profile.get("gameextrainfo", "")
-            game_str = f" - 游戏中: {game}" if game else ""
 
-            result_lines.append(f"{idx}. {name} (ID: {fid})")
-            result_lines.append(f"   状态: {status}{game_str}")
+            if status_code == 1:
+                online_count += 1
+            if game:
+                in_game_count += 1
 
-        if len(friend_ids) > 30:
-            result_lines.append(f"\n... 还有 {len(friend_ids) - 30} 位好友")
+            if game:
+                lines.append(f"{idx}. {name} | {status} | 游戏中: {game}")
+            else:
+                lines.append(f"{idx}. {name} | {status}")
 
-        return "\n".join(result_lines)
+        if len(friend_ids) > 50:
+            lines.append(f"... 还有 {len(friend_ids) - 50} 位好友未显示")
+
+        lines.append("")
+        lines.append(f"[统计] 在线: {online_count} 人, 游戏中: {in_game_count} 人, 离线: {len(friend_ids) - online_count} 人")
+
+        return "\n".join(lines)
 
     async def _get_player_summary(self, steam_id: str = None) -> str:
         if not self.api_key:
@@ -573,7 +595,6 @@ class SteamPlugin(BasePlugin):
         return "\n".join(lines)
 
     async def _market_price(self, item_name: str, app_id: str = None) -> str:
-        """查询单个物品价格"""
         app_id = self._resolve_app_id(app_id)
         if not app_id:
             return "⚠️ 无法识别游戏 AppID"
@@ -625,7 +646,6 @@ class SteamPlugin(BasePlugin):
         return "\n".join(lines)
 
     def _format_market_price_single(self, item_name: str, app_id: int, listing: dict) -> str:
-        """格式化单物品价格（备用方案）"""
         encoded_name = item_name.replace(" ", "%20")
         lines = [
             f"📊 {item_name}",
@@ -643,7 +663,6 @@ class SteamPlugin(BasePlugin):
         return "\n".join(lines)
 
     async def _search_wear_variants(self, base_name: str, app_id: Optional[str] = None) -> str:
-        """搜索物品的所有磨损度价格并汇总（纯文本格式）"""
         resolved_app_id = self._resolve_app_id(app_id)
         if not resolved_app_id:
             return "⚠️ 无法识别游戏 AppID"
@@ -671,7 +690,6 @@ class SteamPlugin(BasePlugin):
                     "volume": price_data.get("volume", "N/A"),
                 })
             else:
-                # 尝试不带括号的写法
                 full_name_alt = f"{base_name} {en_name}"
                 if full_name_alt != full_name:
                     price_data = await self._market_request(resolved_app_id, full_name_alt, "priceoverview")
@@ -686,7 +704,6 @@ class SteamPlugin(BasePlugin):
         if not found_any:
             return f"❌ 未找到「{base_name}」的任何磨损度版本。\n\n请确认物品名称是否正确，例如：\n`AK-47 | Redline`\n`M4A1-S | Printstream`"
 
-        # 计算对齐宽度
         max_price_len = max(len(r["price"]) for r in results)
         max_vol_len = max(len(r["volume"]) for r in results)
 
@@ -783,7 +800,6 @@ class SteamPlugin(BasePlugin):
 
     @on.llm_request(priority=Priority.HIGH)
     async def inject_tools(self, event, req: LLMRequest, *args, **kwargs):
-        """把 Steam 工具注入到 LLM 请求中"""
         if not self.enabled or not self.api_key:
             return
 
@@ -815,7 +831,6 @@ class SteamPlugin(BasePlugin):
 
     @on.im_message(priority=Priority.HIGH)
     async def handle_slash_command(self, event: KiraMessageEvent):
-        """处理 /steam 斜杠命令"""
         if not self.enabled:
             return
 
@@ -862,7 +877,6 @@ class SteamPlugin(BasePlugin):
         event.stop()
 
     async def _send_reply(self, event: KiraMessageEvent, text: str):
-        """发送回复消息"""
         await self.ctx.message_processor.send_message_chain(
             event.session.sid,
             MessageChain([Text(text)])
@@ -871,7 +885,6 @@ class SteamPlugin(BasePlugin):
     # ---------- 子命令 ----------
 
     async def _cmd_market(self, event: KiraMessageEvent, rest: str) -> str:
-        """/steam market 子命令 - 支持自动补全磨损度"""
         if not rest.strip():
             return "❌ 用法: /steam market <物品名>\n示例: /steam market M4A1-S | Printstream"
 
@@ -883,7 +896,6 @@ class SteamPlugin(BasePlugin):
             app_id = parts[0].strip()
             item_name = parts[1].strip()
 
-        # 检查是否已包含磨损度关键词
         wear_keywords = ["Factory New", "Minimal Wear", "Field-Tested", "Well-Worn", "Battle-Scarred", "("]
         has_wear = any(kw in item_name for kw in wear_keywords)
 
@@ -893,7 +905,6 @@ class SteamPlugin(BasePlugin):
                 return result
             return result
 
-        # 未指定磨损度 → 汇总所有磨损度
         return await self._search_wear_variants(item_name, app_id)
 
     async def _cmd_inventory(self, event: KiraMessageEvent, rest: str) -> str:
